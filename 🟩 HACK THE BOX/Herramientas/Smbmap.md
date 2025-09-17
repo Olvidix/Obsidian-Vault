@@ -1,0 +1,8 @@
+
+
+```
+smbmap -H [IP]
+```
+
+
+[[RPCclient]]

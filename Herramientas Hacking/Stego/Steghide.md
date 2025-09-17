@@ -1,0 +1,1 @@
+* steghiude extract -sf [Nombre de la foto]

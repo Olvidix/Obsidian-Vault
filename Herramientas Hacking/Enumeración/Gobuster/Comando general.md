@@ -1,0 +1,1 @@
+ gobuster dir -u [IP] -t 50 -w /usr/share/wordlists/dirb/common.txt -x php,sh,txt,xml,log,js,cgi,py 

@@ -1,0 +1,1 @@
+sudo dhclient [Adaptador de red que no tiene IP]

