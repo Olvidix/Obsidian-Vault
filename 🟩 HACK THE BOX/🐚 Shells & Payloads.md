@@ -36,7 +36,7 @@ Si el firewall bloquea podemos usar el puerto 443 por ejemplo ya que este no sue
 ### Windows
 #Maquina_victima_Windows 
 ```CMD
-Eliminado por que el firewall lo bloquea
+FILTRADO POR EL FIREWALL
 ```
 
 #Maquina_atacante 

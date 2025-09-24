@@ -118,5 +118,44 @@ Podemos hacer rules tal como este ejemplo
 | $! so0 sa@   | p@ssw0rd!             |
 | $! c so0 sa@ | P@ssw0rd!             |
 
+# Casos concretos
+## Descifrar .gzip con OpenSSL
+```
+for i in $(cat rockyou.txt);do openssl enc -aes-256-cbc -d -in [Archivo.gzip] -k $i 2>/dev/null| tar xz;done
+```
+
+## Descifrar BitLocker (.vhd)
+```
+bitlocker2john -i Backup.vhd > backup.hashes
+grep "bitlocker\$0" backup.hashes > backup.hash
+cat backup.hash
 
 
+hashcat -a 0 -m 22100 backup.hash  [WORDLIST]
+
+```
+### Para montar unidades de bitlocker
+#### Windows
+Hacemos doble click en el archivo y ponemos la pass obtenida
+
+#### Linux
+```
+sudo apt-get install dislocker
+
+sudo mkdir -p /media/bitlocker
+sudo mkdir -p /media/bitlockermount
+
+sudo losetup -f -P Backup.vhd
+sudo dislocker /dev/loop1p1 -u[PASSWORD] -- /media/bitlocker
+sudo mount -o loop /media/bitlocker/dislocker-file /media/bitlockermount
+
+
+cd /media/bitlockermount/
+ls -la
+```
+
+Y para desmontarla
+```
+sudo umount /media/bitlockermount
+sudo umount /media/bitlocker
+```

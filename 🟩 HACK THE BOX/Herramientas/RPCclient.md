@@ -35,7 +35,7 @@ for i in $(seq 500 1100);do rpcclient -N -U "" [IP] -c "queryuser 0x$(printf '%x
  
 [[Samrdump.py]]
 [[Enum4linux]]
-[[Crackmapexec - netexec]]
+[[Netexec]]
 [[Smbmap]]
 [[🟩 HACK THE BOX/Herramientas/SMBclient|SMBclient]]
 
