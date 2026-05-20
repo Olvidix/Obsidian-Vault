@@ -41,12 +41,10 @@ ligolo-ng » 1                # selecciona la sesión
 VM1 » start
 ```
 
-
-
 Para el 2 hop
 
 ```bash
-sudo ip tuntap add user kali mode tun ligolo2
+sudo ip tuntap add user root mode tun ligolo2
 sudo ip link set ligolo2 up
 ```
 
@@ -55,33 +53,42 @@ VM1 » listener_add --addr 0.0.0.0:11601 --to 127.0.0.1:11601 --tcp
 ```
 
 ```bash
-sudo ./agent -connect 10.0.2.4:11601 -ignore-cert -retry
+sudo ./agent -connect 10.0.3.4:11601 -ignore-cert -retry
 ```
-
 
 
 ```bash
-ligolo-ng » session          # lista de sesiones
-ligolo-ng » 2                # selecciona la sesión
+ligolo-ng » session          
+ligolo-ng » 2                
+
+~~sudo ip route add 10.0.4.0/24 dev ligolo2~~
 
 VM2 » start --tun ligolo2
-VM2 » sudo ip route add 10.0.4.0/24 dev ligolo2
-VM2 » listener_add --addr 0.0.0.0:11601 --to 127.0.0.1:11601 --tcp
 ```
+
+
+
+
+
+
+Para encadenar puertos:
+```
+VM1 »listener_add --addr 0.0.0.0:4444 --to 10.0.2.4:4444 --tcp
+VM2 »listener_add --addr 0.0.0.0:4444 --to 10.0.3.4:4444 --tcp
+```
+
+Asi encadenamos por ejemplo el 4444
 
 Si queremos hacer un tercer hop a veces no ahce falta hacer la interfaz ligolo3
 
 
-Para encadenar puertos:
-
-VM1 »listener_add --addr 0.0.0.0:4444 --to 10.0.2.4:4444 --tcp
-VM2 »listener_add --addr 0.0.0.0:4444 --to 10.0.2.4:4444 --tcp
-
-Asi encadenamos por ejemplo el 4444
 
 
 
 
+```BASH
+VM2 » listener_add --addr 0.0.0.0:11601 --to 127.0.0.1:11601 --tcp
+```
 
 ligolo-ng » interface_add_route --name ligolo --route 10.0.3.0/24
 ligolo-ng » listener_add --addr 0.0.0.0:8100 --to 127.0.0.1:8100
@@ -101,12 +108,4 @@ ligolo-ng » session          # lista de sesiones
 ligolo-ng » 2                # selecciona la sesión
 ligolo-ng » interface_add_route --name ligolo --route 20.0.0.0/24
 ligolo-ng » listener_add --addr 0.0.0.0:8200 --to 127.0.0.1:8200
-```
-
-## Otros comandos
-
-Ver el listado de **listener**: 
-
-```bash
-ligolo-ng » listener_list
 ```

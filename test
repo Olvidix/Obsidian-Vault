@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Server Status - Admin Panel</title>
+
+    <!-- Estilos globales -->
+    <link rel="stylesheet" href="/static/css/base.css">
+    <!-- Estilos de cada página -->
+    
+  <link rel="stylesheet" href="/static/css/admin.css">
+  <style>
+    .server-status-container {
+      width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      color: #fff;
+    }
+
+    .status-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid #f0c549;
+    }
+
+    .status-header h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2.5rem;
+      color: #f0c549;
+    }
+
+    .status-header .subtitle {
+      color: #aaa;
+      font-size: 1.1rem;
+      margin: 0;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 2rem;
+      color: #f0c549;
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      border: 1px solid #f0c549;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .back-link:hover {
+      background-color: #f0c549;
+      color: #000;
+    }
+
+    .command-panel {
+      background-color: #0d0d0d;
+      border: 2px solid #f0c549;
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .execute-btn {
+      background-color: #f0c549;
+      color: #000;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .execute-btn:hover {
+      background-color: #0f9fff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(240, 197, 73, 0.3);
+    }
+
+    .execute-btn:active {
+      transform: translateY(0);
+    }
+
+    .output-panel {
+      background-color: #0d0d0d;
+      border: 1px solid #333;
+      border-left: 4px solid #f0c549;
+      border-radius: 6px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .output-header {
+      color: #f0c549;
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+
+    .output-content {
+      background-color: #1a1a1a;
+      border-radius: 4px;
+      padding: 1rem;
+      max-height: 500px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: #ccc;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .output-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .output-content::-webkit-scrollbar-track {
+      background: #0d0d0d;
+    }
+
+    .output-content::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+
+    .output-content::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .error-output {
+      color: #dc3545;
+      background-color: #1a0d0d;
+      border-color: #5d3d3d;
+    }
+
+    .empty-output {
+      color: #777;
+      font-style: italic;
+    }
+  </style>
+
+  </head>
+
+  <body>
+    <!-- NAVBAR -->
+    <header class="navbar">
+      <div class="nav-left">
+        <a href="/">
+          <img src="/static/images/icon.png"
+               alt="Logo" class="logo">
+        </a>
+      </div>
+
+      <div class="nav-links nav-right">
+        
+          <a href="/">Inicio</a>
+          <a href="/explore">Explorar</a>
+          <a href="/profile">Perfil</a>
+          
+          <a href="/admin/messages" style="color: #f0c549;">Admin</a>
+          
+          <a href="/contact">Contacto</a>
+          <a href="/logout">Cerrar sesión</a>
+        
+      </div>
+    </header>
+
+    <main>
+      
+<div class="server-status-container">
+  <a href="/admin/messages" class="back-link">
+    ← Volver al Panel
+  </a>
+
+  <div class="status-header">
+    <h1>Server Status Monitor</h1>
+    <p class="subtitle">Sistema de monitoreo del servidor</p>
+  </div>
+
+  <div class="command-panel">
+    <form method="POST" action="/admin/server-status">
+      <input type="hidden" name="command" value="top -bn1 | head -20">
+      <button type="submit" class="execute-btn">
+        Verificar Estado del Servidor
+      </button>
+    </form>
+  </div>
+
+  
+  <div class="output-panel">
+    <div class="output-header">$ top; cat app/templates/file_view.html</div>
+    
+    
+    <div class="output-content">{% extends 'base.html' %}
+
+{% block title %}{{ file_path }} - {{ repo.name }}{% endblock %}
+
+{% block head_css %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/repo.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="repo-container">
+  <header class="repo-header">
+    <div class="repo-title">
+      <h1>
+        <a href="{{ url_for('main.index') }}">{{ user.username }}</a> / 
+        <a href="{{ url_for('git.repo_view', username=user.username, repo_name=repo.name) }}">{{ repo.name }}</a>
+      </h1>
+    </div>
+  </header>
+
+  <nav class="repo-nav">
+    <a href="{{ url_for('git.repo_view', username=user.username, repo_name=repo.name, branch=branch) }}">
+      <span>📁</span> Código
+    </a>
+    <a href="{{ url_for('git.commits', username=user.username, repo_name=repo.name, branch=branch) }}">
+      <span>📝</span> Commits
+    </a>
+    <div class="branch-selector">
+      <select onchange="changeBranch(this.value)">
+        {% for b in branches %}
+          <option value="{{ b }}" {% if b == branch %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </nav>
+
+  <div class="repo-content">
+    <div class="breadcrumb">
+      <a href="{{ url_for('git.repo_view', username=user.username, repo_name=repo.name, branch=branch) }}">{{ repo.name }}</a>
+      {% for crumb in breadcrumb %}
+        / 
+        {% if not crumb.is_last %}
+          <a href="{{ url_for('git.repo_view', username=user.username, repo_name=repo.name, branch=branch, path=crumb.path.rsplit('/', 1)[0] if '/' in crumb.path else '') }}">{{ crumb.name }}</a>
+        {% else %}
+          <span>{{ crumb.name }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="file-viewer">
+      <div class="file-header">
+        <span class="file-name">{{ breadcrumb[-1].name }}</span>
+        <span class="file-info">{{ file_size }} bytes</span>
+      </div>
+      
+      {% if content_type == 'text' %}
+      <div class="file-content">
+        <pre><code>{{ content }}</code></pre>
+      </div>
+      {% else %}
+      <div class="binary-file">
+        <p>⚠️ Archivo binario ({{ file_size }} bytes)</p>
+        <p>Este tipo de archivo no puede ser mostrado en el navegador.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function changeBranch(branch) {
+  const url = '{{ url_for("git.view_file", username=user.username, repo_name=repo.name, branch="BRANCH", file_path=file_path) }}'.replace('BRANCH', branch);
+  window.location = url;
+}
+</script>
+{% endblock %}
+</div>
+    
+  </div>
+  
+</div>
+
+    </main>
+
+    <footer>
+      
+      
+        <img src="/static/images/footer2.png"
+             alt="Decorativo footer">
+      
+    </footer>
+  </body>
+</html>

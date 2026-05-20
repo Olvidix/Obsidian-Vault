@@ -21,9 +21,8 @@ dig axfr @10.129.215.201 inlanefreight.htb
 ```
 
 Este comando indica que `dig`se debe solicitar una transferencia de zona completa ( `axfr`) al servidor DNS responsable de `zonetransfer.me`. Si el servidor está mal configurado y permite la transferencia, recibirá una lista completa de registros DNS del dominio, incluidos todos los subdominios.
-`zonetransfer.me`es un servicio configurado específicamente para demostrar los riesgos de las transferencias de zona de modo que el `dig`comando devuelva el registro de zona completo.
 
 
 [[Script para subdominios con DIG]]
 [[Dnsenum]]
-[[🟩 HACK THE BOX/Herramientas/Web/GoBuster|GoBuster]]
+[[Apuntes Desordenados/🟩 HACK THE BOX/Herramientas/Web/GoBuster|GoBuster]]

@@ -28,3 +28,6 @@ PassTheHass:
 ```
 crackmapexec smb 10.10.110.17 -u Administrator -H 2B576ACBE6BCFDA7294D6BD18041B8FE
 ```
+
+--pass-pol
+Para saber la política de contraseñas

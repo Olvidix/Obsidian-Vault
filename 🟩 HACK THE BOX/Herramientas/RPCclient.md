@@ -2,7 +2,7 @@ Principalmente para enumerar informacion
 
 Para conectarse anónimamente:
 ```
-rpcclient -U "" [IP]
+rpcclient -U "" -N [IP]
 ```
 
 Para conectarse con credenciales:
@@ -24,6 +24,9 @@ rpcclient -U [USUARIO] --pw-nt-hash [HASH_NTML] [IP]
 | `netsharegetinfo <share>` | Proporciona información sobre una acción específica.                                  |
 | `enumdomusers`            | Enumera todos los usuarios del dominio.                                               |
 | `queryuser <RID>`         | Proporciona información sobre un usuario específico.                                  |
+| getdompwinfo              | Política de contraseñas                                                               |
+| enumdomgroups             | Para enumerar grupos                                                                  |
+| `querygroup <RID>`        | Para enumerar los usuarios dentro de un grupo especifico.                             |
 
 
 Script automatizado para sacar los RID a través de fuerza bruta:
@@ -37,7 +40,7 @@ for i in $(seq 500 1100);do rpcclient -N -U "" [IP] -c "queryuser 0x$(printf '%x
 [[Enum4linux]]
 [[Netexec]]
 [[Smbmap]]
-[[🟩 HACK THE BOX/Herramientas/SMBclient|SMBclient]]
+[[Apuntes Desordenados/🟩 HACK THE BOX/Herramientas/SMBclient|SMBclient]]
 
 
 

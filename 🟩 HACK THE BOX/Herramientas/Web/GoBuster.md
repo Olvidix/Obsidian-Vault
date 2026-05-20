@@ -25,6 +25,8 @@ gobuster vhost -u http://[IP] -w [WORDLIST] --append-domain
 gobuster vhost -u http://inlanefreight.htb:37954 -w /usr/share/wordlists/seclists/Discovery/DNS/subdomains-top1million-110000.txt --append-domain
 ```
 
+Se puede añadir -q -k 
+
 Si vamos a usar un nombre DNS primero tenemos que configurar el /etc/hosts para que resuelva a la IP que nos ha dado y el puerto si es que nos lo dan después en el comando
 
 [[Script para subdominios con DIG]]
