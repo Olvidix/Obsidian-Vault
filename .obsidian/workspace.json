@@ -53,7 +53,7 @@
             "state": {
               "type": "search",
               "state": {
-                "query": "bloo",
+                "query": "$krb",
                 "matchingCase": false,
                 "explainSearch": false,
                 "collapseAll": false,
@@ -74,7 +74,8 @@
               "title": "Bookmarks"
             }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "horizontal",
@@ -171,11 +172,19 @@
   },
   "active": "52fa076efbf00ee6",
   "lastOpenFiles": [
-    "TRABAJO.md",
+    "Active Directory/3.Rompemos hashes con hashcat.md",
+    "🟩 HACK THE BOX/Servicios/11. MSSQL (1433-1434).md",
     "💘NUEVO A METER/Windows AD enumeration and attacks.md",
     "🟩 HACK THE BOX/🔄️ Mover Archivos de una maquina a otra.md",
-    "ACL_attacks_graphic.png",
+    "💘NUEVO A METER/Árbol de decisión de ntlmrelayx.md",
+    "TRABAJO.md",
+    "Servers gratis Ip publicas.md",
+    "🟩 HACK THE BOX/♻️ Ligolo-ng.md",
+    "🔍 Ping.sh.md",
     "💘NUEVO A METER/🪟Windows Privilege Escalation.md",
+    "💘NUEVO A METER/Problema del Doble Salto de Kerberos.md",
+    "Kerberos - Conceptos básicos.md",
+    "ACL_attacks_graphic.png",
     "🟩 HACK THE BOX/🛠️ Solucionario de Buggs.md",
     "🟩 HACK THE BOX/BloodHound.md",
     "🟩 HACK THE BOX/Herramientas/Smbmap.md",
@@ -190,13 +199,6 @@
     "🟩 HACK THE BOX/🔥🔥 Iniciar Windows sin saber la contraseña 🔥🔥.md",
     "🟩 HACK THE BOX/Hydra.md",
     "🟩 HACK THE BOX/Herramientas/Web/GoBuster.md",
-    "🟩 HACK THE BOX/Servicios/4. DNS (53).md",
-    "TheBridge/💀 Shell Shock - Bashdoor.md",
-    "Onliner php.md",
-    "🟩 HACK THE BOX/👀Password Attacks & Hunting.md",
-    "🟩 HACK THE BOX/🐚 Shells & Payloads.md",
-    "🟩 HACK THE BOX/♻️ Ligolo-ng.md",
-    "🟩 HACK THE BOX/⛓️‍💥 Password Cracking.md",
     "💘NUEVO A METER",
     "Capturas - Fotos/Pasted image 20260421231048.png",
     "Capturas - Fotos/Pasted image 20260420192756.png",

